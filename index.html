@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f7f8fb" />
+  <title>Пульс покупок — аналитика заказов</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script defer src="data.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+<div id="app" v-cloak>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview"><span class="brand-icon">◈</span><span>puls<span class="brand-dot">.</span><small>PERSONAL ANALYTICS</small></span></a>
+      <div class="side-section">РАБОЧАЯ ОБЛАСТЬ</div>
+      <a href="#overview" class="side-link active"><span>▦</span> Обзор покупок</a>
+      <a href="#dynamics" class="side-link"><span>↗</span> Динамика</a>
+      <a href="#products" class="side-link"><span>◫</span> Товары</a>
+      <a href="#categories" class="side-link"><span>◉</span> Категории</a>
+      <div class="sidebar-bottom"><span class="status-dot"></span> Данные загружены <small>Вариант B · {{ all.length.toLocaleString('ru-RU') }} строк</small></div>
+    </aside>
+    <main class="main" id="overview">
+      <header class="topbar"><span>АНАЛИТИКА / ОБЗОР</span><span class="top-right"><span class="status-dot"></span> Интерактивный дашборд</span></header>
+      <div class="content">
+        <section class="hero"><div><div class="eyebrow">МОИ ПОКУПКИ <span>✦</span> ИСТОРИЯ ЗАКАЗОВ</div><h1>Пульс покупок<span class="accent">.</span></h1><p>Исследуйте траты, скидки и любимые товары — от общей картины до отдельных категорий.</p></div><div class="hero-symbol">✳</div></section>
+        <section class="filterbar" aria-label="Фильтры"><div class="filters-title"><span class="filter-icon">☷</span><span>Фильтры</span></div><label>Период<select v-model="year"><option value="all">Весь период</option><option v-for="y in years" :value="String(y)">{{y}} год</option></select></label><label>Категория<select v-model="category"><option value="all">Все категории</option><option v-for="c in categories" :value="c">{{c}}</option></select></label><label class="month-filter">Месяц<select v-model="month"><option value="all">Все месяцы</option><option v-for="(m,i) in months" :value="String(i+1)">{{m}}</option></select></label><button class="clear-btn" @click="resetFilters" title="Сбросить фильтры">↺ <span>Сбросить</span></button></section>
+        <div class="scope-note"><span class="status-dot"></span> {{scopeLabel}} <span class="scope-separator">·</span> Только доставленные заказы <span class="scope-separator">·</span> Суммы в рублях</div>
+        <section class="stats"><div class="stat-card"><div class="stat-head"><span>КОЛИЧЕСТВО ЗАКАЗОВ</span><span class="stat-symbol lavender">▣</span></div><div class="stat-val">{{integer(kpis.orders)}}</div><div class="stat-desc">Уникальных заказов за период</div></div><div class="stat-card"><div class="stat-head"><span>СУММА ТРАТ</span><span class="stat-symbol mint">₽</span></div><div class="stat-val">{{rubles(kpis.spend)}}</div><div class="stat-desc">Оплачено с учётом скидок</div></div><div class="stat-card"><div class="stat-head"><span>СРЕДНЯЯ СКИДКА</span><span class="stat-symbol peach">%</span></div><div class="stat-val">{{pct(kpis.discount)}}</div><div class="stat-desc">Доля экономии от цены до скидки</div></div><div class="stat-card"><div class="stat-head"><span>СРЕДНИЙ ЧЕК</span><span class="stat-symbol blue">↗</span></div><div class="stat-val">{{rubles(kpis.orders ? kpis.spend/kpis.orders : 0)}}</div><div class="stat-desc">Траты в расчёте на один заказ</div></div></section>
+        <section id="dynamics" class="panel chart-panel"><div class="panel-heading"><div><div class="section-kicker">01 / ДИНАМИКА</div><h2>Как менялись покупки</h2><p>Показатели по месяцам; наведите курсор на график для подробностей.</p></div><div class="segmented"><button v-for="m in metrics" :class="{selected:metric===m.id}" @click="metric=m.id" :key="m.id">{{m.label}}</button></div></div><div class="chart-wrap" ref="trendWrap"><svg ref="trendSvg" role="img" :aria-label="'График по месяцам: '+metric"></svg><div v-if="!monthly.length" class="empty">Нет данных за выбранный период</div></div><div class="chart-foot"><span><i class="legend-dot"></i> {{metrics.find(m=>m.id===metric).label}}</span><span>Помесячная агрегация · {{monthly.length}} мес.</span></div></section>
+        <section class="two-col" id="categories"><div class="panel category-panel"><div class="panel-heading"><div><div class="section-kicker">02 / СТРУКТУРА РАСХОДОВ</div><h2>Куда уходят деньги</h2><p>Категории товаров по сумме покупок</p></div></div><div class="category-rows"><button v-for="c in categorySpend" :key="c.name" class="cat-row" @click="category=category===c.name?'all':c.name" :title="'Фильтровать по категории: '+c.name"><div class="cat-line"><span>{{c.name}}</span><b>{{rubles(c.value)}}</b></div><div class="track"><span :style="{width:(categorySpend[0]?100*c.value/categorySpend[0].value:0)+'%'}"></span></div></button><div v-if="!categorySpend.length" class="empty">Нет данных</div></div><p class="small-note">Нажмите на категорию, чтобы применить фильтр</p></div><div class="panel insights-panel"><div class="panel-heading"><div><div class="section-kicker">03 / ПОРТРЕТ ПОКУПОК</div><h2>В нескольких цифрах</h2><p>Общая статистика за выбранный период</p></div></div><div class="insight-list"><div><span class="insight-icon">◇</span><span>Уникальных товаров<small>Без учёта доставки и упаковки</small></span><strong>{{integer(productCount)}}</strong></div><div><span class="insight-icon">▤</span><span>Единиц товаров<small>Суммарное количество покупок</small></span><strong>{{integer(productQuantity)}}</strong></div><div><span class="insight-icon">◔</span><span>Экономия на скидках<small>Разница между ценой и оплатой</small></span><strong>{{rubles(kpis.savings)}}</strong></div><div><span class="insight-icon">◌</span><span>Категорий товаров<small>Включая услуги в общей статистике</small></span><strong>{{integer(new Set(filtered.map(d=>d.c)).size)}}</strong></div></div><div class="insight-bottom">Покупки — это не только суммы. Узнайте, что вы выбираете чаще всего ↓</div></div></section>
+        <section class="panel products-panel" id="products"><div class="panel-heading product-heading"><div><div class="section-kicker">04 / АНАЛИЗ ТОВАРОВ</div><h2>Что в корзине чаще всего</h2><p>Рейтинг позиций по частоте покупок или сумме трат. Услуги не учитываются.</p></div><div class="product-tools"><div class="segmented"><button :class="{selected:ranking==='quantity'}" @click="ranking='quantity'">По количеству</button><button :class="{selected:ranking==='spend'}" @click="ranking='spend'">По тратам</button></div><label class="search"><span>⌕</span><input v-model="search" placeholder="Найти товар..." aria-label="Поиск товара" /></label></div></div><div class="products-grid"><div v-for="(p,i) in products" :key="p.name" class="product-item"><div class="product-rank">{{String(i+1).padStart(2,'0')}}</div><div class="product-image"><img v-if="p.image" :src="p.image" :alt="p.name" loading="lazy" @error="hideBroken"/><span v-else>◈</span></div><div class="product-name"><strong :title="p.name">{{p.name}}</strong><small>{{p.category}}</small><div class="product-progress"><span :style="{width:(products[0]?100*(ranking==='quantity'?p.quantity:p.spend)/(ranking==='quantity'?products[0].quantity:products[0].spend):0)+'%'}"></span></div></div><div class="product-value"><strong>{{ranking==='quantity'?integer(p.quantity):rubles(p.spend)}}</strong><small>{{ranking==='quantity'?'шт.':'потрачено'}}</small></div></div></div><div class="product-empty" v-if="!products.length">Товары не найдены. Попробуйте другой период, категорию или запрос.</div><div class="product-footer"><span>Показано {{products.length}} из {{matchingProducts.length}} позиций</span><button v-if="matchingProducts.length>visibleCount" class="more" @click="visibleCount+=10">Показать ещё ↓</button><button v-else-if="visibleCount>10" class="more" @click="visibleCount=10">Свернуть ↑</button></div></section>
+        <footer class="footer"><strong>puls<span>.</span></strong> <span>Дашборд заказов · Учебный проект на Vue 3 + D3.js</span> <span>Источник: датасет «Вариант B»</span></footer>
+      </div>
+    </main>
+  </div>
+  <div class="tooltip" ref="tooltip" style="display:none"></div>
+</div>
+</body>
+</html>
